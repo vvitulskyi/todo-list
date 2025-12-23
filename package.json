@@ -1,0 +1,17 @@
+{
+  "name": "sd-solutions-home-assignment",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "mkdir -p .npm-cache && npm_config_cache=\"$PWD/.npm-cache\" npx --yes concurrently -n server,client -c magenta,cyan \"npm -w server run start:dev\" \"npm -w client run dev\"",
+    "dev:server": "mkdir -p .npm-cache && npm_config_cache=\"$PWD/.npm-cache\" npm -w server run start:dev",
+    "dev:client": "mkdir -p .npm-cache && npm_config_cache=\"$PWD/.npm-cache\" npm -w client run dev",
+    "lint": "npm -w server run lint && npm -w client run lint",
+    "lint:fix": "npm -w server run lint:fix && npm -w client run lint:fix",
+    "lint:server": "npm -w server run lint",
+    "lint:client": "npm -w client run lint"
+  }
+}
