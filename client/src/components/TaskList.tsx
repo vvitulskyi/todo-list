@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { TaskItem } from '@/components/TaskItem';
-import type { Task } from '@/types/task';
+import type { SubTask, Task } from '@/types/task';
 import * as React from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
@@ -13,6 +13,9 @@ export function TaskList({
   onToggleCompleted,
   onEdit,
   onDelete,
+  onBreakdown,
+  onToggleSubTask,
+  aiBusy,
 }: {
   tasks: Task[];
   loading: boolean;
@@ -21,6 +24,9 @@ export function TaskList({
   onToggleCompleted: (id: string, nextCompleted: boolean) => Promise<void>;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => Promise<void>;
+  onBreakdown: (taskId: string) => Promise<void>;
+  onToggleSubTask: (taskId: string, subTask: SubTask) => Promise<void>;
+  aiBusy?: boolean;
 }) {
   const parentRef = React.useRef<HTMLDivElement | null>(null);
   const [scrollMargin, setScrollMargin] = React.useState(0);
@@ -59,7 +65,7 @@ export function TaskList({
     return (
       <div className="rounded-lg border bg-card p-4">
         <p className="text-sm text-destructive">Failed to load tasks: {error}</p>
-        <Button className="mt-3" variant="outline" onClick={onRetry}>
+        <Button className="mt-3" variant="outline" onClick={onRetry} disabled={aiBusy}>
           Retry
         </Button>
       </div>
@@ -79,7 +85,6 @@ export function TaskList({
     <div ref={parentRef} role="list" aria-label="Tasks list">
       <div
         className="relative"
-        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const t = tasks[virtualRow.index]!;
@@ -91,10 +96,7 @@ export function TaskList({
                 if (!el) return;
                 rowVirtualizer.measureElement(el);
               }}
-              className="absolute left-0 top-0 w-full px-0 py-1.5"
-              style={{
-                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
-              }}
+              className="w-full px-0 py-1.5"
             >
               <div className="grid gap-3">
                 <TaskItem
@@ -102,6 +104,9 @@ export function TaskList({
                   onToggleCompleted={onToggleCompleted}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onBreakdown={onBreakdown}
+                  onToggleSubTask={onToggleSubTask}
+                  busy={aiBusy}
                 />
               </div>
             </div>

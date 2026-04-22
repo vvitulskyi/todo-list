@@ -1,4 +1,4 @@
-# SD Solutions Home Assignment — Tasks App
+# Tasks App
 
 ## Overview
 
@@ -7,10 +7,12 @@ A full-stack personal task manager with a NestJS REST API and a React (Vite) fro
 ## Key features
 
 - **CRUD tasks**: create, edit, delete, mark complete/pending
+- **Subtasks**: structured checklist per task (`id`, `title`, `done`), AI-generated via breakdown or updated via the API
+- **AI assistance** (GitHub Models): **Suggest plan** (ordered pending tasks with reasons) and **Breakdown** (subtasks with optional clarification flow)
 - **Filtering**: all / pending / completed
-- **Polished UX**: loading skeletons, error states with retry, toast feedback on actions
+- **Polished UX**: loading skeletons, error states with retry, toast feedback on actions, global UI lock while AI requests run
 - **Accessibility**: labeled inputs, keyboard-friendly dialogs, focus-visible styles
-- **Persistence**: tasks stored in a **static JSON file** (no database)
+- **Persistence**: tasks and append-only **task history** stored in a **static JSON file** (no database)
 - **Performance**: task list uses **virtualization** (renders only visible rows)
 
 ## Project structure
@@ -28,6 +30,7 @@ This repository uses **npm workspaces** (`client` and `server` are declared in t
 
 - Node.js 20+ recommended
 - npm
+- **GitHub personal access token** with permission to use **GitHub Models** (see [Environment variables](#environment-variables))
 
 ### Install dependencies
 
@@ -46,6 +49,32 @@ cd server && npm install
 ```bash
 cd client && npm install
 ```
+
+### Environment variables
+
+AI features call **[GitHub Models](https://github.com/marketplace/models)** through the OpenAI-compatible endpoint `https://models.github.ai/inference`. The server reads the API key from:
+
+| Variable | Required for AI | Description |
+|----------|-----------------|-------------|
+| `GITHUB_TOKEN` | Yes | A GitHub **personal access token (classic)** or fine-grained token with access to GitHub Models inference. The Nest app passes this value as the OpenAI client `apiKey` (see [`server/src/ai/llm/llm.client.ts`](server/src/ai/llm/llm.client.ts)). |
+
+**Setup:**
+
+1. Copy the example file and add your token:
+
+   ```bash
+   cp server/.env.example server/.env
+   ```
+
+2. Edit `server/.env` and set `GITHUB_TOKEN` to a valid token. Do not commit `.env` (it should remain gitignored).
+
+3. **Where to put `.env`:** `@nestjs/config` loads `.env` from the **process current working directory**. If you start the API with `cd server && npm run start:dev`, keep `server/.env`. If you start only the server via a workspace script that uses `server` as cwd, `server/.env` is correct. If you run the whole stack from the repo root and the server process cwd is the root, copy or symlink env vars there—or export `GITHUB_TOKEN` in your shell before starting.
+
+Without `GITHUB_TOKEN`, task CRUD still works; **Suggest plan** and **Breakdown** will fail when the backend calls the model.
+
+Optional:
+
+- `PORT` — HTTP port for the API (default `3000`).
 
 ---
 
@@ -98,10 +127,13 @@ Each task includes:
 - `priority: "high" | "medium" | "low"`
 - `dueDate: string | null` (format `YYYY-MM-DD`)
 - `status: "pending" | "completed"`
+- `subTasks: Array<{ id: string; title: string; done: boolean }> | null`
 - `createdAt: string` (ISO timestamp)
 - `updatedAt: string` (ISO timestamp)
 
-> Note: API responses always include `description` and `dueDate` keys (as `null` when not provided).
+On disk, [`server/data/tasks.json`](server/data/tasks.json) also stores a top-level **`history`** array of `{ taskId, action: "created" | "updated" | "completed", timestamp }` events used as context for AI breakdown (not exposed as a separate REST resource).
+
+> Note: API responses always include `description`, `dueDate`, and `subTasks` keys (as `null` or empty array semantics per endpoint when not set).
 
 ### Endpoints
 
@@ -142,11 +174,28 @@ Optional:
 
 - `description`
 - `dueDate`
+- `subTasks` — full list of subtask objects when updating checklist state
 
 ```bash
 curl -s -X PUT http://localhost:3000/api/tasks/<id> \
   -H 'Content-Type: application/json' \
   -d '{"title":"Write docs","priority":"medium","status":"completed","description":null,"dueDate":null}'
+```
+
+#### POST `/api/tasks/:id/breakdown`
+
+Runs AI breakdown for the task: returns either `{ "status": "needs_clarification", "questions": string[] }` or the updated task with persisted `subTasks`.
+
+```bash
+curl -s -X POST http://localhost:3000/api/tasks/<id>/breakdown
+```
+
+#### POST `/api/ai/suggest-plan`
+
+Returns an ordered list of pending tasks with AI-generated reasons. Request body is empty.
+
+```bash
+curl -s -X POST http://localhost:3000/api/ai/suggest-plan
 ```
 
 #### DELETE `/api/tasks/:id`
@@ -205,14 +254,17 @@ npm run lint:client
 
 ### Backend
 - **NestJS**: structured modules/controllers/services, built-in DI, great for clean architecture.
-- **Static JSON file**: matches requirements; simplest persistence without DB.
+- **Static JSON file**: matches requirements; simplest persistence without DB; optional `history` array for AI context.
+- **AI module**: layered design (`LLMClient`, prompts, Zod-validated breakdown output, retry loop, context builder for “mini-RAG” over tasks + history).
+- **GitHub Models**: OpenAI SDK with `baseURL` `https://models.github.ai/inference` and `GITHUB_TOKEN` as the API key.
 - **class-validator DTOs**: clear input validation and predictable error handling.
 
 **Trade-offs**:
 - File-based persistence is not ideal for high concurrency or large datasets; suitable for this assignment scope.
+- AI quality and availability depend on GitHub Models and a valid `GITHUB_TOKEN`.
 
 ---
 
-## Product decisions
+## Agent log
 
-See [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md).
+See [`AGENT_LOG.md`](AGENT_LOG.md).

@@ -11,7 +11,7 @@ import {
 import { CreateTaskDto } from './dto/CreateTask.dto';
 import type { TaskResponseDto } from './dto/TaskResponse.dto';
 import { UpdateTaskDto } from './dto/UpdateTask.dto';
-import { TasksService } from './tasks.service';
+import { TasksService, type GenerateSubTasksResult } from './tasks.service';
 
 @Controller('api/tasks')
 export class TasksController {
@@ -27,6 +27,7 @@ export class TasksController {
       priority: task.priority,
       dueDate: task.dueDate ?? null,
       status: task.status,
+      subTasks: task.subTasks ?? null,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
     }));
@@ -42,6 +43,7 @@ export class TasksController {
       priority: task.priority,
       dueDate: task.dueDate ?? null,
       status: task.status,
+      subTasks: task.subTasks ?? null,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
     };
@@ -60,9 +62,15 @@ export class TasksController {
       priority: task.priority,
       dueDate: task.dueDate ?? null,
       status: task.status,
+      subTasks: task.subTasks ?? null,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
     };
+  }
+
+  @Post(':id/breakdown')
+  async breakdown(@Param('id') id: string): Promise<GenerateSubTasksResult> {
+    return this.tasksService.generateSubTasksWithAI(id);
   }
 
   @Delete(':id')

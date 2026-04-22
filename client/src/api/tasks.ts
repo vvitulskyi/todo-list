@@ -1,4 +1,10 @@
-import type { CreateTaskInput, Task, UpdateTaskInput } from '@/types/task';
+import type {
+  BreakdownTaskResult,
+  CreateTaskInput,
+  SuggestPlanItem,
+  Task,
+  UpdateTaskInput,
+} from '@/types/task';
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -41,4 +47,17 @@ export async function deleteTask(id: string): Promise<void> {
   );
 }
 
+export async function suggestPlan(): Promise<SuggestPlanItem[]> {
+  return handle<SuggestPlanItem[]>(
+    await fetch('/api/ai/suggest-plan', { method: 'POST' }),
+  );
+}
+
+export async function breakdownTask(taskId: string): Promise<BreakdownTaskResult> {
+  return handle<BreakdownTaskResult>(
+    await fetch(`/api/tasks/${encodeURIComponent(taskId)}/breakdown`, {
+      method: 'POST',
+    }),
+  );
+}
 

@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import * as api from '@/api/tasks';
-import { type CreateTaskInput, type Task, TaskStatus, type UpdateTaskInput } from '@/types/task';
+import {
+  type BreakdownTaskResult,
+  type CreateTaskInput,
+  type SuggestPlanItem,
+  type Task,
+  TaskStatus,
+  type UpdateTaskInput,
+} from '@/types/task';
 
 export type TaskFilter = 'all' | TaskStatus;
 
@@ -11,6 +18,7 @@ export function useTasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const filteredTasks = useMemo(() => {
     if (filter === 'all') return tasks;
@@ -59,6 +67,7 @@ export function useTasks() {
         status: merged.status,
         description: merged.description ?? undefined,
         dueDate: merged.dueDate ?? undefined,
+        subTasks: merged.subTasks ?? undefined,
       });
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
       toast.success('Task updated');
@@ -80,6 +89,41 @@ export function useTasks() {
     }
   }, []);
 
+  const suggestPlan = useCallback(async (): Promise<SuggestPlanItem[]> => {
+    setAiLoading(true);
+    try {
+      const plan = await api.suggestPlan();
+      return plan;
+    } catch (e) {
+      toast.error('Failed to get AI plan suggestion');
+      throw e;
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  const breakdownTask = useCallback(
+    async (taskId: string): Promise<BreakdownTaskResult> => {
+      setAiLoading(true);
+      try {
+        const result = await api.breakdownTask(taskId);
+        if (!('status' in result)) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? (result as Task) : t)),
+          );
+          toast.success('Subtasks generated and saved');
+        }
+        return result;
+      } catch (e) {
+        toast.error('Failed to generate subtasks');
+        throw e;
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [],
+  );
+
   return {
     tasks,
     filteredTasks,
@@ -91,6 +135,9 @@ export function useTasks() {
     create,
     update,
     remove,
+    suggestPlan,
+    breakdownTask,
+    aiLoading,
   };
 }
 

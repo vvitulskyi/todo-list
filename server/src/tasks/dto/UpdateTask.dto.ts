@@ -1,12 +1,29 @@
+import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
+  ValidateNested,
+  IsArray,
 } from 'class-validator';
 import { TaskPriority } from '../enums/TaskPriority.enum';
 import { TaskStatus } from '../enums/TaskStatus.enum';
+
+export class SubTaskDto {
+  @IsString()
+  @IsNotEmpty()
+  id!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @IsBoolean()
+  done!: boolean;
+}
 
 export class UpdateTaskDto {
   @IsString()
@@ -27,4 +44,10 @@ export class UpdateTaskDto {
 
   @IsEnum(TaskStatus)
   status!: TaskStatus;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SubTaskDto)
+  @IsOptional()
+  subTasks?: SubTaskDto[];
 }

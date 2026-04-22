@@ -9,6 +9,12 @@ export enum TaskStatus {
   Completed = 'completed',
 }
 
+export interface SubTask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -16,9 +22,27 @@ export interface Task {
   priority: TaskPriority;
   dueDate: string | null;
   status: TaskStatus;
+  subTasks: SubTask[] | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface SuggestPlanItem {
+  taskId: string;
+  reason: string;
+  task: {
+    id: string;
+    title: string;
+    priority: TaskPriority;
+    status: TaskStatus;
+    createdAt: string;
+    dueDate: string | null;
+  };
+}
+
+export type BreakdownTaskResult =
+  | { status: 'needs_clarification'; questions: string[] }
+  | Task;
 
 export interface CreateTaskInput {
   title: string;
@@ -28,6 +52,6 @@ export interface CreateTaskInput {
   status?: TaskStatus;
 }
 
-export type UpdateTaskInput = Partial<CreateTaskInput>;
-
-
+export interface UpdateTaskInput extends Partial<CreateTaskInput> {
+  subTasks?: SubTask[];
+}

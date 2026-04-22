@@ -4,24 +4,30 @@ REST API for the Tasks app. Part of the monorepo documented in the [root README]
 
 ## Responsibilities
 
-- Expose CRUD endpoints under **`/api/tasks`** (`GET`, `POST`, `PUT`, `DELETE`).
+- Expose CRUD endpoints under **`/api/tasks`** (`GET`, `POST`, `PUT`, `DELETE`) plus **`POST /api/tasks/:id/breakdown`** (AI subtasks).
+- Expose **`POST /api/ai/suggest-plan`** (AI day plan for pending tasks).
 - Validate request bodies with **class-validator** DTOs (`CreateTaskDto`, `UpdateTaskDto`).
-- Persist tasks in a **JSON file** on disk (no database).
+- Persist tasks and task **history** in a **JSON file** on disk (no database).
 
 ## Persistence
 
 - Data file: **`data/tasks.json`** relative to the process **current working directory** (when you run the server from `server/`, that is `server/data/tasks.json`).
-- The file is created automatically; the shape is `{ "tasks": [ ... ] }`.
+- The file is created automatically; the shape is `{ "tasks": [ ... ], "history": [ ... ] }`. History entries (`created` / `updated` / `completed`) support AI context for breakdown.
 - Writes use a **simple queue lock** so concurrent writes are serialized.
 - `data/tasks.json` is **gitignored** (see `.gitignore`) so local data is not committed.
+
+## AI / environment
+
+- Inference uses **GitHub Models** via `GITHUB_TOKEN` (see [root README environment section](../README.md#environment-variables) and [`server/.env.example`](.env.example)).
 
 ## Module layout
 
 | Area | Role |
 |------|------|
 | `TasksController` | HTTP routes, maps DTOs to responses |
-| `TasksService` | Business logic, normalization |
-| `TasksRepository` | Read/write JSON file |
+| `TasksService` | Business logic, normalization, `generateSubTasksWithAI` |
+| `TasksRepository` | Read/write JSON file (tasks + history) |
+| `AiModule` | LLM client, prompts, validation, suggest-plan controller |
 
 ## Prerequisites
 

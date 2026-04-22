@@ -31,6 +31,7 @@ export function TaskFormDialog({
   onCreate,
   onUpdate,
   busy,
+  clarificationQuestions,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,12 +40,20 @@ export function TaskFormDialog({
   onCreate: (input: CreateTaskInput) => Promise<void>;
   onUpdate: (id: string, input: UpdateTaskInput) => Promise<void>;
   busy?: boolean;
+  clarificationQuestions?: string[];
 }) {
+  const hasClarification =
+    mode === 'edit' &&
+    Array.isArray(clarificationQuestions) &&
+    clarificationQuestions.length > 0;
+
   const titleText = mode === 'create' ? 'Create task' : 'Edit task';
   const descText =
     mode === 'create'
       ? 'Add a new task with a title, priority, and optional details.'
-      : 'Update task details. Changes are saved to the backend.';
+      : hasClarification
+        ? 'The AI needs a clearer task before it can generate subtasks. Answer the questions below by updating the title or description, then save.'
+        : 'Update task details. Changes are saved to the backend.';
 
   const initial = useMemo(() => {
     const base = {
@@ -120,6 +129,23 @@ export function TaskFormDialog({
           <DialogTitle>{titleText}</DialogTitle>
           <DialogDescription>{descText}</DialogDescription>
         </DialogHeader>
+
+        {hasClarification ? (
+          <div
+            className="rounded-md border border-border bg-card p-3"
+            role="region"
+            aria-label="Clarification questions from AI"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Please clarify
+            </p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm text-foreground">
+              {clarificationQuestions!.map((q, i) => (
+                <li key={i}>{q}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <div className="grid gap-4">
           <div className="grid gap-2">

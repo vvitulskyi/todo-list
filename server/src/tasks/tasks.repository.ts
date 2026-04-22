@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { Task } from './dto/TaskResponse.dto';
+import type { Task, TaskHistoryEntry } from './dto/TaskResponse.dto';
 
 type TasksFileShape = {
   tasks: Task[];
+  history: TaskHistoryEntry[];
 };
 
 @Injectable()
@@ -34,9 +35,10 @@ export class TasksRepository {
       const parsed = JSON.parse(raw) as Partial<TasksFileShape>;
       return {
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        history: Array.isArray(parsed.history) ? parsed.history : [],
       };
     } catch {
-      return { tasks: [] };
+      return { tasks: [], history: [] };
     }
   }
 
@@ -54,7 +56,21 @@ export class TasksRepository {
 
   async writeAll(tasks: Task[]): Promise<void> {
     await this.withWriteLock(async () => {
-      await this.writeFileShape({ tasks });
+      const shape = await this.readFileShape();
+      await this.writeFileShape({ ...shape, tasks });
+    });
+  }
+
+  async getHistory(): Promise<TaskHistoryEntry[]> {
+    const { history } = await this.readFileShape();
+    return history;
+  }
+
+  async appendHistory(entry: TaskHistoryEntry): Promise<void> {
+    await this.withWriteLock(async () => {
+      const shape = await this.readFileShape();
+      shape.history.push(entry);
+      await this.writeFileShape(shape);
     });
   }
 }
