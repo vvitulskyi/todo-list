@@ -107,7 +107,7 @@ export function useTasks() {
       setAiLoading(true);
       try {
         const result = await api.breakdownTask(taskId);
-        if (!('status' in result)) {
+        if (!('status' in result && result.status === 'needs_clarification')) {
           setTasks((prev) =>
             prev.map((t) => (t.id === taskId ? (result as Task) : t)),
           );

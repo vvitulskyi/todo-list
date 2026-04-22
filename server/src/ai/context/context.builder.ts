@@ -1,5 +1,7 @@
+import { EmbeddingService } from '../embedding/embedding.service';
 import type { Task, TaskHistoryEntry } from '../../tasks/dto/TaskResponse.dto';
 import { TaskStatus } from '../../tasks/enums/TaskStatus.enum';
+import type { TasksRepository } from '../../tasks/tasks.repository';
 
 export interface AIContext {
   activeTasks: Task[];
@@ -24,26 +26,31 @@ export function buildAIContext(
   };
 }
 
-export function findRelatedTasks(target: Task, tasks: Task[]): Task[] {
-  const firstWord = target.title.toLowerCase().split(' ')[0];
-
-  if (!firstWord || firstWord.length < 3) return [];
-
-  return tasks
-    .filter(
-      (t) => t.id !== target.id && t.title.toLowerCase().includes(firstWord),
-    )
-    .slice(0, 5);
+export async function findRelatedTasks(
+  target: Task,
+  repo: TasksRepository,
+  embeddingService: EmbeddingService,
+  limit = 5,
+): Promise<Task[]> {
+  const text = embeddingService.buildText(target);
+  const embedding = await embeddingService.embed(text);
+  const similar = await repo.findSimilar(embedding, limit + 1);
+  return similar.filter((t) => t.id !== target.id).slice(0, limit);
 }
 
-export function buildEnrichedInput(
+export async function buildEnrichedInput(
   task: Task,
   tasks: Task[],
   history: TaskHistoryEntry[],
-): EnrichedBreakdownInput {
+  repo: TasksRepository,
+  embeddingService: EmbeddingService,
+): Promise<EnrichedBreakdownInput> {
+  const context = buildAIContext(tasks, history);
+  const relatedTasks = await findRelatedTasks(task, repo, embeddingService);
+
   return {
     currentTask: task,
-    context: buildAIContext(tasks, history),
-    relatedTasks: findRelatedTasks(task, tasks),
+    context,
+    relatedTasks,
   };
 }

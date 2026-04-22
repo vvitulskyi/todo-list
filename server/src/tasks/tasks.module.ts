@@ -1,13 +1,13 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { AiModule } from '../ai/ai.module';
+import { Module } from '@nestjs/common';
+import { EmbeddingModule } from '../ai/embedding/embedding.module';
 import { TasksController } from './tasks.controller';
 import { TasksRepository } from './tasks.repository';
 import { TasksService } from './tasks.service';
 
 @Module({
-  imports: [forwardRef(() => AiModule)],
+  imports: [EmbeddingModule],
   controllers: [TasksController],
   providers: [TasksRepository, TasksService],
-  exports: [TasksService],
+  exports: [TasksService, TasksRepository],
 })
 export class TasksModule {}

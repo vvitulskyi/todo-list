@@ -1,8 +1,14 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Param, Post } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import type { SubTask, Task } from '../tasks/dto/TaskResponse.dto';
 import { TaskStatus } from '../tasks/enums/TaskStatus.enum';
 import { TasksService } from '../tasks/tasks.service';
 import { AiService } from './ai.service';
 import type { SuggestPlanResponseDto } from './dto/suggest-plan.dto';
+
+export type GenerateSubTasksResult =
+  | { status: 'needs_clarification'; questions: string[] }
+  | Task;
 
 @Controller('api/ai')
 export class AiController {
@@ -37,5 +43,41 @@ export class AiController {
           },
         };
       });
+  }
+
+  @Post('breakdown/:taskId')
+  async breakdown(
+    @Param('taskId') taskId: string,
+  ): Promise<GenerateSubTasksResult> {
+    const [task, allTasks, history] = await Promise.all([
+      this.tasksService.findOne(taskId),
+      this.tasksService.getAll(),
+      this.tasksService.getHistory(),
+    ]);
+
+    const aiResult = await this.aiService.breakdownTask(
+      task,
+      allTasks,
+      history,
+    );
+
+    if (aiResult.needsClarification) {
+      return { status: 'needs_clarification', questions: aiResult.questions };
+    }
+
+    const subTasks: SubTask[] = aiResult.subtasks.map((title) => ({
+      id: randomUUID(),
+      title,
+      done: false,
+    }));
+
+    return this.tasksService.update(taskId, {
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      status: task.status,
+      subTasks,
+    });
   }
 }

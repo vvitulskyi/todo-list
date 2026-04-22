@@ -55,7 +55,7 @@ export async function suggestPlan(): Promise<SuggestPlanItem[]> {
 
 export async function breakdownTask(taskId: string): Promise<BreakdownTaskResult> {
   return handle<BreakdownTaskResult>(
-    await fetch(`/api/tasks/${encodeURIComponent(taskId)}/breakdown`, {
+    await fetch(`/api/ai/breakdown/${encodeURIComponent(taskId)}`, {
       method: 'POST',
     }),
   );

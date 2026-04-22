@@ -1,9 +1,11 @@
+import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import type { LLMResponse } from './llm.types';
 
 const endpoint = 'https://models.github.ai/inference';
 const modelName = 'openai/gpt-4o-mini';
 
+@Injectable()
 export class LLMClient {
   private readonly client: OpenAI;
 
@@ -22,6 +24,7 @@ export class LLMClient {
         { role: 'user', content: user },
       ],
       temperature: 0.2,
+      response_format: { type: 'json_object' },
     });
 
     return { content: response.choices[0].message.content };

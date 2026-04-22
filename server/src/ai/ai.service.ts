@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { Task, TaskHistoryEntry } from '../tasks/dto/TaskResponse.dto';
+import { TasksRepository } from '../tasks/tasks.repository';
 import { buildEnrichedInput } from './context/context.builder';
-import type { SuggestPlanItem } from './dto/suggest-plan.dto';
+import { EmbeddingService } from './embedding/embedding.service';
 import { LLMClient } from './llm/llm.client';
 import { breakdownTaskPrompt } from './prompts/breakdown-task.prompt';
 import { suggestPlanPrompt } from './prompts/suggest-plan.prompt';
@@ -9,24 +10,28 @@ import {
   BreakdownSchema,
   type BreakdownValidated,
 } from './validation/breakdown.schema';
+import {
+  SuggestPlanSchema,
+  type SuggestPlanValidated,
+} from './validation/suggest-plan.schema';
 
 const MAX_RETRIES = 3;
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly llm = new LLMClient();
 
-  async suggestPlan(tasks: Task[]): Promise<SuggestPlanItem[]> {
+  constructor(
+    private readonly tasksRepository: TasksRepository,
+    private readonly embeddingService: EmbeddingService,
+    private readonly llm: LLMClient,
+  ) {}
+
+  async suggestPlan(tasks: Task[]): Promise<SuggestPlanValidated> {
     const user = JSON.stringify({ tasks });
     const { content } = await this.llm.chat(suggestPlanPrompt, user);
-    const parsed = this.safeParse<SuggestPlanItem[]>(content);
-
-    if (!Array.isArray(parsed)) {
-      throw new BadRequestException('AI returned unexpected format for plan');
-    }
-
-    return parsed;
+    const parsed = this.safeParse<unknown>(content);
+    return this.safeValidateSuggestPlan(parsed);
   }
 
   async breakdownTask(
@@ -35,8 +40,15 @@ export class AiService {
     history: TaskHistoryEntry[],
     attempt = 1,
   ): Promise<BreakdownValidated> {
+    const enrichedInput = await buildEnrichedInput(
+      task,
+      allTasks,
+      history,
+      this.tasksRepository,
+      this.embeddingService,
+    );
+
     try {
-      const enrichedInput = buildEnrichedInput(task, allTasks, history);
       const { content } = await this.llm.chat(
         breakdownTaskPrompt,
         JSON.stringify(enrichedInput),
@@ -57,6 +69,18 @@ export class AiService {
       );
       return this.breakdownTask(task, allTasks, history, attempt + 1);
     }
+  }
+
+  private safeValidateSuggestPlan(data: unknown): SuggestPlanValidated {
+    const result = SuggestPlanSchema.safeParse(data);
+
+    if (!result.success) {
+      throw new BadRequestException(
+        `AI returned unexpected format for plan: ${result.error.issues.map((i) => i.message).join(', ')}`,
+      );
+    }
+
+    return result.data;
   }
 
   private safeValidateBreakdown(data: unknown): BreakdownValidated {

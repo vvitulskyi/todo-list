@@ -11,7 +11,7 @@ import {
 import { CreateTaskDto } from './dto/CreateTask.dto';
 import type { TaskResponseDto } from './dto/TaskResponse.dto';
 import { UpdateTaskDto } from './dto/UpdateTask.dto';
-import { TasksService, type GenerateSubTasksResult } from './tasks.service';
+import { TasksService } from './tasks.service';
 
 @Controller('api/tasks')
 export class TasksController {
@@ -66,11 +66,6 @@ export class TasksController {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
     };
-  }
-
-  @Post(':id/breakdown')
-  async breakdown(@Param('id') id: string): Promise<GenerateSubTasksResult> {
-    return this.tasksService.generateSubTasksWithAI(id);
   }
 
   @Delete(':id')
