@@ -4,17 +4,19 @@ REST API for the Tasks app. Part of the monorepo documented in the [root README]
 
 ## Responsibilities
 
-- Expose CRUD endpoints under **`/api/tasks`** (`GET`, `POST`, `PUT`, `DELETE`) plus **`POST /api/tasks/:id/breakdown`** (AI subtasks).
+- Expose CRUD endpoints under **`/api/tasks`** (`GET`, `POST`, `PUT`, `DELETE`).
+- Expose **`POST /api/ai/breakdown/:taskId`** (AI subtasks with semantic context via pgvector).
 - Expose **`POST /api/ai/suggest-plan`** (AI day plan for pending tasks).
 - Validate request bodies with **class-validator** DTOs (`CreateTaskDto`, `UpdateTaskDto`).
-- Persist tasks and task **history** in a **JSON file** on disk (no database).
+- Persist tasks, embeddings, and task history in **PostgreSQL** with the `pgvector` extension.
 
 ## Persistence
 
-- Data file: **`data/tasks.json`** relative to the process **current working directory** (when you run the server from `server/`, that is `server/data/tasks.json`).
-- The file is created automatically; the shape is `{ "tasks": [ ... ], "history": [ ... ] }`. History entries (`created` / `updated` / `completed`) support AI context for breakdown.
-- Writes use a **simple queue lock** so concurrent writes are serialized.
-- `data/tasks.json` is **gitignored** (see `.gitignore`) so local data is not committed.
+- **PostgreSQL** (pgvector/pgvector:pg16) — start with `docker compose up -d` from the repo root.
+- Connection string is read from `DATABASE_URL` env var (see [`.env.example`](.env.example)).
+- Migrations run automatically on server start via [`src/database/migrations/001_init.sql`](src/database/migrations/001_init.sql). The migration is idempotent (`CREATE TABLE IF NOT EXISTS`).
+- The `tasks` table includes an `embedding vector(1536)` column populated on every create/update using `text-embedding-3-small`.
+- A separate `task_history` table records `created` / `updated` / `completed` events used as AI context.
 
 ## AI / environment
 
@@ -24,15 +26,20 @@ REST API for the Tasks app. Part of the monorepo documented in the [root README]
 
 | Area | Role |
 |------|------|
-| `TasksController` | HTTP routes, maps DTOs to responses |
-| `TasksService` | Business logic, normalization, `generateSubTasksWithAI` |
-| `TasksRepository` | Read/write JSON file (tasks + history) |
-| `AiModule` | LLM client, prompts, validation, suggest-plan controller |
+| `TasksController` | HTTP routes for CRUD, maps DTOs to responses |
+| `TasksService` | Business logic: create/update/delete tasks, generate embeddings |
+| `TasksRepository` | Read/write PostgreSQL (tasks, history, vector similarity search) |
+| `AiController` | AI endpoints: `suggest-plan` and `breakdown/:taskId` (orchestrates AI + task read/write) |
+| `AiService` | LLM interactions: breakdown and suggest-plan with Zod validation and retry |
+| `EmbeddingService` | Generates `text-embedding-3-small` vectors via GitHub Models |
+| `LLMClient` | Injectable OpenAI client pointed at `https://models.github.ai/inference` |
+| `DatabaseModule` | Provides `pg.Pool` with auto-migration on startup |
 
 ## Prerequisites
 
 - Node.js 20+ recommended
 - npm
+- Docker (for PostgreSQL with pgvector)
 
 ## Install
 
