@@ -30,8 +30,8 @@ export class AiService {
   async suggestPlan(tasks: Task[]): Promise<SuggestPlanValidated> {
     const user = JSON.stringify({ tasks });
     const { content } = await this.llm.chat(suggestPlanPrompt, user);
-    const parsed = this.safeParse<unknown>(content);
-    return this.safeValidateSuggestPlan(parsed);
+    const parsed = this.safeParse<{ tasks: unknown }>(content);
+    return this.safeValidateSuggestPlan(parsed?.tasks);
   }
 
   async breakdownTask(
